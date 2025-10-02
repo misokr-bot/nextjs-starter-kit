@@ -8,17 +8,56 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { toast } from "sonner";
 
+const isGoogleOAuthEnabled = process.env.NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED === 'true';
+
 function SignInContent() {
   const [loading, setLoading] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [isSignUp, setIsSignUp] = useState(false);
   const searchParams = useSearchParams();
   const returnTo = searchParams.get("returnTo");
+  const router = useRouter();
+
+  const handleEmailAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      if (isSignUp) {
+        await authClient.signUp.email({
+          email,
+          password,
+          name,
+          callbackURL: returnTo || "/dashboard",
+        });
+        toast.success("Account created successfully!");
+        router.push(returnTo || "/dashboard");
+      } else {
+        await authClient.signIn.email({
+          email,
+          password,
+          callbackURL: returnTo || "/dashboard",
+        });
+        router.push(returnTo || "/dashboard");
+      }
+    } catch (error) {
+      console.error("Authentication error:", error);
+      toast.error(isSignUp ? "Sign up failed" : "Sign in failed");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="flex flex-col justify-center items-center w-full h-screen">
@@ -28,78 +67,134 @@ function SignInContent() {
             Welcome to Nextjs Starter Kit
           </CardTitle>
           <CardDescription className="text-xs md:text-sm">
-            Use your google account to login to your account
+            {isGoogleOAuthEnabled
+              ? "Use your google account to login to your account"
+              : `${isSignUp ? 'Create an account' : 'Sign in'} with email and password`}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4">
-            <div
-              className={cn(
-                "w-full gap-2 flex items-center",
-                "justify-between flex-col",
-              )}
-            >
-              <Button
-                variant="outline"
-                className={cn("w-full gap-2")}
-                disabled={loading}
-                onClick={async () => {
-                  try {
-                    await authClient.signIn.social(
-                      {
-                        provider: "google",
-                        callbackURL: returnTo || "/dashboard",
-                      },
-                      {
-                        onRequest: () => {
-                          setLoading(true);
-                        },
-                        onResponse: () => {
-                          setLoading(false);
-                        },
-                        onError: (ctx) => {
-                          setLoading(false);
-                          // Add user-friendly error handling here
-                          console.error("Sign-in failed:", ctx.error);
-                        },
-                      },
-                    );
-                  } catch (error) {
-                    setLoading(false);
-                    console.error("Authentication error:", error);
-                    // Consider adding toast notification for user feedback
-                    toast.error("Oops, something went wrong", {
-                      duration: 5000,
-                    });
-                  }
-                }}
+            {isGoogleOAuthEnabled ? (
+              <div
+                className={cn(
+                  "w-full gap-2 flex items-center",
+                  "justify-between flex-col",
+                )}
               >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="0.98em"
-                  height="1em"
-                  viewBox="0 0 256 262"
+                <Button
+                  variant="outline"
+                  className={cn("w-full gap-2")}
+                  disabled={loading}
+                  onClick={async () => {
+                    try {
+                      await authClient.signIn.social(
+                        {
+                          provider: "google",
+                          callbackURL: returnTo || "/dashboard",
+                        },
+                        {
+                          onRequest: () => {
+                            setLoading(true);
+                          },
+                          onResponse: () => {
+                            setLoading(false);
+                          },
+                          onError: (ctx) => {
+                            setLoading(false);
+                            console.error("Sign-in failed:", ctx.error);
+                          },
+                        },
+                      );
+                    } catch (error) {
+                      setLoading(false);
+                      console.error("Authentication error:", error);
+                      toast.error("Oops, something went wrong", {
+                        duration: 5000,
+                      });
+                    }
+                  }}
                 >
-                  <path
-                    fill="#4285F4"
-                    d="M255.878 133.451c0-10.734-.871-18.567-2.756-26.69H130.55v48.448h71.947c-1.45 12.04-9.283 30.172-26.69 42.356l-.244 1.622l38.755 30.023l2.685.268c24.659-22.774 38.875-56.282 38.875-96.027"
-                  ></path>
-                  <path
-                    fill="#34A853"
-                    d="M130.55 261.1c35.248 0 64.839-11.605 86.453-31.622l-41.196-31.913c-11.024 7.688-25.82 13.055-45.257 13.055c-34.523 0-63.824-22.773-74.269-54.25l-1.531.13l-40.298 31.187l-.527 1.465C35.393 231.798 79.49 261.1 130.55 261.1"
-                  ></path>
-                  <path
-                    fill="#FBBC05"
-                    d="M56.281 156.37c-2.756-8.123-4.351-16.827-4.351-25.82c0-8.994 1.595-17.697 4.206-25.82l-.073-1.73L15.26 71.312l-1.335.635C5.077 89.644 0 109.517 0 130.55s5.077 40.905 13.925 58.602z"
-                  ></path>
-                  <path
-                    fill="#EB4335"
-                    d="M130.55 50.479c24.514 0 41.05 10.589 50.479 19.438l36.844-35.974C195.245 12.91 165.798 0 130.55 0C79.49 0 35.393 29.301 13.925 71.947l42.211 32.783c10.59-31.477 39.891-54.251 74.414-54.251"
-                  ></path>
-                </svg>
-                Login with Google
-              </Button>
-            </div>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="0.98em"
+                    height="1em"
+                    viewBox="0 0 256 262"
+                  >
+                    <path
+                      fill="#4285F4"
+                      d="M255.878 133.451c0-10.734-.871-18.567-2.756-26.69H130.55v48.448h71.947c-1.45 12.04-9.283 30.172-26.69 42.356l-.244 1.622l38.755 30.023l2.685.268c24.659-22.774 38.875-56.282 38.875-96.027"
+                    ></path>
+                    <path
+                      fill="#34A853"
+                      d="M130.55 261.1c35.248 0 64.839-11.605 86.453-31.622l-41.196-31.913c-11.024 7.688-25.82 13.055-45.257 13.055c-34.523 0-63.824-22.773-74.269-54.25l-1.531.13l-40.298 31.187l-.527 1.465C35.393 231.798 79.49 261.1 130.55 261.1"
+                    ></path>
+                    <path
+                      fill="#FBBC05"
+                      d="M56.281 156.37c-2.756-8.123-4.351-16.827-4.351-25.82c0-8.994 1.595-17.697 4.206-25.82l-.073-1.73L15.26 71.312l-1.335.635C5.077 89.644 0 109.517 0 130.55s5.077 40.905 13.925 58.602z"
+                    ></path>
+                    <path
+                      fill="#EB4335"
+                      d="M130.55 50.479c24.514 0 41.05 10.589 50.479 19.438l36.844-35.974C195.245 12.91 165.798 0 130.55 0C79.49 0 35.393 29.301 13.925 71.947l42.211 32.783c10.59-31.477 39.891-54.251 74.414-54.251"
+                    ></path>
+                  </svg>
+                  Login with Google
+                </Button>
+              </div>
+            ) : (
+              <form onSubmit={handleEmailAuth} className="space-y-4">
+                {isSignUp && (
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Name</Label>
+                    <Input
+                      id="name"
+                      type="text"
+                      placeholder="Your name"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      required
+                      disabled={loading}
+                    />
+                  </div>
+                )}
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="your@email.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    disabled={loading}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="password">Password</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    disabled={loading}
+                  />
+                </div>
+                <Button type="submit" className="w-full" disabled={loading}>
+                  {loading ? "Loading..." : isSignUp ? "Sign Up" : "Sign In"}
+                </Button>
+                <div className="text-center">
+                  <button
+                    type="button"
+                    onClick={() => setIsSignUp(!isSignUp)}
+                    className="text-sm text-primary hover:underline"
+                    disabled={loading}
+                  >
+                    {isSignUp ? "Already have an account? Sign in" : "Don't have an account? Sign up"}
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </CardContent>
       </Card>
