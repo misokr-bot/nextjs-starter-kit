@@ -13,12 +13,12 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
 
-// Utility function to safely parse dates
-function safeParseDate(value: string | Date | null | undefined): Date | null {
-  if (!value) return null;
-  if (value instanceof Date) return value;
-  return new Date(value);
-}
+// Utility function to safely parse dates - only used when Polar is enabled
+// function safeParseDate(value: string | Date | null | undefined): Date | null {
+//   if (!value) return null;
+//   if (value instanceof Date) return value;
+//   return new Date(value);
+// }
 
 // Polar disabled for development without payment features
 // const polarClient = new Polar({
