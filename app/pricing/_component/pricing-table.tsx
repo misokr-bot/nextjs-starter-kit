@@ -85,15 +85,14 @@ export default function PricingTable({
     }
   };
 
-  const STARTER_TIER = process.env.NEXT_PUBLIC_STARTER_TIER;
-  const STARTER_SLUG = process.env.NEXT_PUBLIC_STARTER_SLUG;
-
-  if (!STARTER_TIER || !STARTER_SLUG) {
-    throw new Error("Missing required environment variables for Starter tier");
-  }
+  // Payment features disabled for development without Polar.sh
+  const STARTER_TIER = process.env.NEXT_PUBLIC_STARTER_TIER || "";
+  const STARTER_SLUG = process.env.NEXT_PUBLIC_STARTER_SLUG || "";
+  const isPaymentEnabled = !!STARTER_TIER && !!STARTER_SLUG;
 
   const isCurrentPlan = (tierProductId: string) => {
     return (
+      tierProductId &&
       subscriptionDetails.hasSubscription &&
       subscriptionDetails.subscription?.productId === tierProductId &&
       subscriptionDetails.subscription?.status === "active"
@@ -180,8 +179,11 @@ export default function PricingTable({
               <Button
                 className="w-full"
                 onClick={() => handleCheckout(STARTER_TIER, STARTER_SLUG)}
+                disabled={!isPaymentEnabled}
               >
-                {isAuthenticated === false
+                {!isPaymentEnabled
+                  ? "Payment Disabled"
+                  : isAuthenticated === false
                   ? "Sign In to Get Started"
                   : "Get Started"}
               </Button>
