@@ -1,6 +1,7 @@
 import { Toaster } from "@/components/ui/sonner";
 import type { Metadata } from "next";
 import { ThemeProvider } from "../components/provider";
+import SupportWidget from "@/components/support-widget";
 import "./globals.css";
 import { Analytics } from "@vercel/analytics/next";
 export const metadata: Metadata = {
@@ -44,6 +45,7 @@ export default function RootLayout({
           {children}
           <Toaster />
           <Analytics />
+          <SupportWidget />
         </ThemeProvider>
       </body>
     </html>
