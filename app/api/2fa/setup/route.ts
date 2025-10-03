@@ -1,31 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
 import { generateTwoFactorSecret } from "@/lib/2fa";
 import { logUserAction, AUDIT_ACTIONS, AUDIT_RESOURCES } from "@/lib/audit";
+import { requireAuth, getClientIp, getUserAgent } from "@/lib/middleware/auth";
 
-export async function POST(req: NextRequest) {
+export const POST = requireAuth(async (req, user) => {
   try {
-    const result = await auth.api.getSession({
-      headers: await headers(),
-    });
-
-    if (!result?.session?.userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     const setup = await generateTwoFactorSecret(
-      result.session.userId,
-      result.session.user.email
+      user.id,
+      user.email
     );
 
     // Log the action
     await logUserAction(
-      result.session.userId,
-      AUDIT_ACTIONS.TWO_FA_ENABLE,
+      user.id,
+      AUDIT_ACTIONS.TWO_FA_SETUP,
       AUDIT_RESOURCES.TWO_FA,
       undefined,
-      { action: "setup_initiated" }
+      { action: "setup_initiated" },
+      getClientIp(req),
+      getUserAgent(req)
     );
 
     return NextResponse.json({ setup });
@@ -36,4 +29,4 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

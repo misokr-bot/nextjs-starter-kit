@@ -1,18 +1,9 @@
-import { auth } from "@/lib/auth";
 import { getSubscriptionDetails } from "@/lib/subscription";
-import { headers } from "next/headers";
 import { NextResponse } from "next/server";
+import { requireAuth } from "@/lib/middleware/auth";
 
-export async function GET() {
+export const GET = requireAuth(async (req, user) => {
   try {
-    const result = await auth.api.getSession({
-      headers: await headers(),
-    });
-
-    if (!result?.session?.userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     const subscriptionDetails = await getSubscriptionDetails();
     return NextResponse.json(subscriptionDetails);
   } catch (error) {
@@ -22,4 +13,4 @@ export async function GET() {
       { status: 500 }
     );
   }
-}
+});

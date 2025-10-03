@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
 import { enableTwoFactor, verifyTwoFactorCode } from "@/lib/2fa";
 import { logUserAction, AUDIT_ACTIONS, AUDIT_RESOURCES } from "@/lib/audit";
+import { requireAuth, getClientIp, getUserAgent } from "@/lib/middleware/auth";
 import {
   checkRateLimit,
   recordFailedAttempt,
@@ -11,16 +10,8 @@ import {
   TWO_FA_RATE_LIMIT,
 } from "@/lib/rate-limit";
 
-export async function POST(req: NextRequest) {
+export const POST = requireAuth(async (req, user) => {
   try {
-    const result = await auth.api.getSession({
-      headers: await headers(),
-    });
-
-    if (!result?.session?.userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     const body = await req.json();
     const { token, action } = body;
 
@@ -30,14 +21,14 @@ export async function POST(req: NextRequest) {
 
     // Check rate limit before processing
     const rateLimitResult = await checkRateLimit(
-      result.session.userId,
+      user.id,
       TWO_FA_RATE_LIMIT
     );
 
     if (!rateLimitResult.allowed) {
       // Log failed attempt due to rate limit
       await logUserAction(
-        result.session.userId,
+        user.id,
         AUDIT_ACTIONS.TWO_FA_VERIFY,
         AUDIT_RESOURCES.TWO_FA,
         undefined,
@@ -45,7 +36,9 @@ export async function POST(req: NextRequest) {
           action: "rate_limited",
           locked: rateLimitResult.isLocked,
           lockedUntil: rateLimitResult.lockedUntil?.toISOString(),
-        }
+        },
+        getClientIp(req),
+        getUserAgent(req)
       );
 
       return NextResponse.json(
@@ -61,18 +54,18 @@ export async function POST(req: NextRequest) {
 
     if (action === "enable") {
       // Enable 2FA
-      const success = await enableTwoFactor(result.session.userId, token);
+      const success = await enableTwoFactor(user.id, token);
 
       if (!success) {
         // Record failed attempt
         const failedResult = await recordFailedAttempt(
-          result.session.userId,
+          user.id,
           TWO_FA_RATE_LIMIT
         );
 
         // Log failed attempt
         await logUserAction(
-          result.session.userId,
+          user.id,
           AUDIT_ACTIONS.TWO_FA_ENABLE,
           AUDIT_RESOURCES.TWO_FA,
           undefined,
@@ -80,7 +73,9 @@ export async function POST(req: NextRequest) {
             action: "failed",
             remaining: failedResult.remaining,
             locked: failedResult.isLocked,
-          }
+          },
+          getClientIp(req),
+          getUserAgent(req)
         );
 
         return NextResponse.json(
@@ -95,35 +90,37 @@ export async function POST(req: NextRequest) {
       }
 
       // Reset attempts on success
-      await resetAttempts(result.session.userId);
+      await resetAttempts(user.id);
 
       // Log the action
       await logUserAction(
-        result.session.userId,
+        user.id,
         AUDIT_ACTIONS.TWO_FA_ENABLE,
         AUDIT_RESOURCES.TWO_FA,
         undefined,
-        { action: "enabled" }
+        { action: "enabled" },
+        getClientIp(req),
+        getUserAgent(req)
       );
 
       return NextResponse.json({ success: true });
     } else {
       // Verify token for login
       const verification = await verifyTwoFactorCode(
-        result.session.userId,
+        user.id,
         token
       );
 
       if (!verification.isValid) {
         // Record failed attempt
         const failedResult = await recordFailedAttempt(
-          result.session.userId,
+          user.id,
           TWO_FA_RATE_LIMIT
         );
 
         // Log failed attempt
         await logUserAction(
-          result.session.userId,
+          user.id,
           AUDIT_ACTIONS.TWO_FA_VERIFY,
           AUDIT_RESOURCES.TWO_FA,
           undefined,
@@ -131,7 +128,9 @@ export async function POST(req: NextRequest) {
             action: "failed",
             remaining: failedResult.remaining,
             locked: failedResult.isLocked,
-          }
+          },
+          getClientIp(req),
+          getUserAgent(req)
         );
 
         return NextResponse.json(
@@ -146,15 +145,17 @@ export async function POST(req: NextRequest) {
       }
 
       // Reset attempts on success
-      await resetAttempts(result.session.userId);
+      await resetAttempts(user.id);
 
       // Log the action
       await logUserAction(
-        result.session.userId,
+        user.id,
         AUDIT_ACTIONS.TWO_FA_VERIFY,
         AUDIT_RESOURCES.TWO_FA,
         undefined,
-        { action: "verified", backupCodeUsed: verification.backupCodeUsed }
+        { action: "verified", backupCodeUsed: verification.backupCodeUsed },
+        getClientIp(req),
+        getUserAgent(req)
       );
 
       return NextResponse.json({
@@ -169,4 +170,4 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

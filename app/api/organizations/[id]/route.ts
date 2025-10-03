@@ -1,158 +1,138 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
 import { getOrganizationWithMembers, updateOrganization, deleteOrganization } from "@/lib/organizations";
 import { logUserAction, AUDIT_ACTIONS, AUDIT_RESOURCES } from "@/lib/audit";
+import { requireOrganization, getClientIp, getUserAgent } from "@/lib/middleware/auth";
 
-export async function GET(
+async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
-  try {
-    const result = await auth.api.getSession({
-      headers: await headers(),
-    });
+  return requireOrganization(async (req, user, organizationId) => {
+    try {
+      const organization = await getOrganizationWithMembers(organizationId);
 
-    if (!result?.session?.userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      if (!organization) {
+        return NextResponse.json({ error: "Organization not found" }, { status: 404 });
+      }
+
+      return NextResponse.json({ organization });
+    } catch (error) {
+      console.error("Failed to get organization:", error);
+      return NextResponse.json(
+        { error: "Failed to get organization" },
+        { status: 500 }
+      );
     }
-
-    const organization = await getOrganizationWithMembers(params.id);
-
-    if (!organization) {
-      return NextResponse.json({ error: "Organization not found" }, { status: 404 });
-    }
-
-    // Check if user is a member of this organization
-    const isMember = organization.members.some(
-      member => member.userId === result.session.userId
-    );
-
-    if (!isMember) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    return NextResponse.json({ organization });
-  } catch (error) {
-    console.error("Failed to get organization:", error);
-    return NextResponse.json(
-      { error: "Failed to get organization" },
-      { status: 500 }
-    );
-  }
+  })(req);
 }
 
-export async function PUT(
+export { GET };
+
+async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
-  try {
-    const result = await auth.api.getSession({
-      headers: await headers(),
-    });
+  return requireOrganization(async (req, user, organizationId) => {
+    try {
+      const body = await req.json();
+      const { name, slug, description, website, logo } = body;
 
-    if (!result?.session?.userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      const organization = await getOrganizationWithMembers(organizationId);
+
+      if (!organization) {
+        return NextResponse.json({ error: "Organization not found" }, { status: 404 });
+      }
+
+      // Check if user is an admin or owner of this organization
+      const userMember = organization.members.find(
+        member => member.userId === user.id
+      );
+
+      if (!userMember || (userMember.role !== "owner" && userMember.role !== "admin")) {
+        return NextResponse.json({ error: "Forbidden - Admin or owner required" }, { status: 403 });
+      }
+
+      const success = await updateOrganization(organizationId, {
+        name,
+        slug,
+        description,
+        website,
+        logo,
+      });
+
+      if (!success) {
+        return NextResponse.json({ error: "Failed to update organization" }, { status: 500 });
+      }
+
+      // Log the action
+      await logUserAction(
+        user.id,
+        AUDIT_ACTIONS.ORGANIZATION_UPDATE,
+        AUDIT_RESOURCES.ORGANIZATION,
+        organizationId,
+        { updates: { name, slug, description, website, logo } },
+        getClientIp(req),
+        getUserAgent(req)
+      );
+
+      return NextResponse.json({ success: true });
+    } catch (error) {
+      console.error("Failed to update organization:", error);
+      return NextResponse.json(
+        { error: "Failed to update organization" },
+        { status: 500 }
+      );
     }
-
-    const body = await req.json();
-    const { name, slug, description, website, logo } = body;
-
-    const organization = await getOrganizationWithMembers(params.id);
-
-    if (!organization) {
-      return NextResponse.json({ error: "Organization not found" }, { status: 404 });
-    }
-
-    // Check if user is an admin or owner of this organization
-    const userMember = organization.members.find(
-      member => member.userId === result.session.userId
-    );
-
-    if (!userMember || (userMember.role !== "owner" && userMember.role !== "admin")) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    const success = await updateOrganization(params.id, {
-      name,
-      slug,
-      description,
-      website,
-      logo,
-    });
-
-    if (!success) {
-      return NextResponse.json({ error: "Failed to update organization" }, { status: 500 });
-    }
-
-    // Log the action
-    await logUserAction(
-      result.session.userId,
-      AUDIT_ACTIONS.ORGANIZATION_UPDATE,
-      AUDIT_RESOURCES.ORGANIZATION,
-      params.id,
-      { updates: { name, slug, description, website, logo } }
-    );
-
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("Failed to update organization:", error);
-    return NextResponse.json(
-      { error: "Failed to update organization" },
-      { status: 500 }
-    );
-  }
+  })(req);
 }
 
-export async function DELETE(
+async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
-  try {
-    const result = await auth.api.getSession({
-      headers: await headers(),
-    });
+  return requireOrganization(async (req, user, organizationId) => {
+    try {
+      const organization = await getOrganizationWithMembers(organizationId);
 
-    if (!result?.session?.userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      if (!organization) {
+        return NextResponse.json({ error: "Organization not found" }, { status: 404 });
+      }
+
+      // Check if user is the owner of this organization
+      const userMember = organization.members.find(
+        member => member.userId === user.id
+      );
+
+      if (!userMember || userMember.role !== "owner") {
+        return NextResponse.json({ error: "Forbidden - Owner required" }, { status: 403 });
+      }
+
+      const success = await deleteOrganization(organizationId);
+
+      if (!success) {
+        return NextResponse.json({ error: "Failed to delete organization" }, { status: 500 });
+      }
+
+      // Log the action
+      await logUserAction(
+        user.id,
+        AUDIT_ACTIONS.ORGANIZATION_DELETE,
+        AUDIT_RESOURCES.ORGANIZATION,
+        organizationId,
+        { name: organization.name },
+        getClientIp(req),
+        getUserAgent(req)
+      );
+
+      return NextResponse.json({ success: true });
+    } catch (error) {
+      console.error("Failed to delete organization:", error);
+      return NextResponse.json(
+        { error: "Failed to delete organization" },
+        { status: 500 }
+      );
     }
-
-    const organization = await getOrganizationWithMembers(params.id);
-
-    if (!organization) {
-      return NextResponse.json({ error: "Organization not found" }, { status: 404 });
-    }
-
-    // Check if user is the owner of this organization
-    const userMember = organization.members.find(
-      member => member.userId === result.session.userId
-    );
-
-    if (!userMember || userMember.role !== "owner") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    const success = await deleteOrganization(params.id);
-
-    if (!success) {
-      return NextResponse.json({ error: "Failed to delete organization" }, { status: 500 });
-    }
-
-    // Log the action
-    await logUserAction(
-      result.session.userId,
-      AUDIT_ACTIONS.ORGANIZATION_DELETE,
-      AUDIT_RESOURCES.ORGANIZATION,
-      params.id,
-      { name: organization.name }
-    );
-
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("Failed to delete organization:", error);
-    return NextResponse.json(
-      { error: "Failed to delete organization" },
-      { status: 500 }
-    );
-  }
+  })(req);
 }
+
+export { PUT, DELETE };

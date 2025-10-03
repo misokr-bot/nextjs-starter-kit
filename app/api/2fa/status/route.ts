@@ -1,19 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
 import { getTwoFactorStatus } from "@/lib/2fa";
+import { requireAuth } from "@/lib/middleware/auth";
 
-export async function GET(req: NextRequest) {
+export const GET = requireAuth(async (req, user) => {
   try {
-    const result = await auth.api.getSession({
-      headers: await headers(),
-    });
-
-    if (!result?.session?.userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const status = await getTwoFactorStatus(result.session.userId);
+    const status = await getTwoFactorStatus(user.id);
 
     return NextResponse.json({ status });
   } catch (error) {
@@ -23,4 +14,4 @@ export async function GET(req: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

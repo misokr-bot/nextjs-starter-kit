@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { 
-  sendWelcomeEmail, 
-  sendPaymentFailedEmail, 
-  sendSubscriptionRenewalEmail, 
-  sendSecurityAlertEmail 
+import {
+  sendWelcomeEmail,
+  sendPaymentFailedEmail,
+  sendSubscriptionRenewalEmail,
+  sendSecurityAlertEmail
 } from "@/lib/notifications/email";
+import { requireAuth } from "@/lib/middleware/auth";
 
-export async function POST(req: NextRequest) {
+export const POST = requireAuth(async (req, user) => {
   try {
     const { type, email } = await req.json();
 
@@ -59,10 +60,10 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Invalid email type" }, { status: 400 });
     }
 
-    return NextResponse.json({ 
-      success: true, 
+    return NextResponse.json({
+      success: true,
       message: `${type} email sent successfully`,
-      data: result 
+      data: result
     });
 
   } catch (error) {
@@ -72,4 +73,4 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

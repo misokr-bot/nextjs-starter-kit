@@ -1,11 +1,12 @@
 import { uploadImageAssets } from "@/lib/upload-image";
 import { NextRequest, NextResponse } from "next/server";
+import { requireAuth } from "@/lib/middleware/auth";
 
 export const config = {
   api: { bodyParser: false }, // Disable default body parsing
 };
 
-export async function POST(req: NextRequest) {
+export const POST = requireAuth(async (req, user) => {
   try {
     // Parse the form data
     const formData = await req.formData();
@@ -61,4 +62,4 @@ export async function POST(req: NextRequest) {
       { status: 500 },
     );
   }
-}
+});

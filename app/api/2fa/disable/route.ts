@@ -1,20 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
 import { disableTwoFactor } from "@/lib/2fa";
 import { logUserAction, AUDIT_ACTIONS, AUDIT_RESOURCES } from "@/lib/audit";
+import { requireAuth, getClientIp, getUserAgent } from "@/lib/middleware/auth";
 
-export async function POST(req: NextRequest) {
+export const POST = requireAuth(async (req, user) => {
   try {
-    const result = await auth.api.getSession({
-      headers: await headers(),
-    });
-
-    if (!result?.session?.userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const success = await disableTwoFactor(result.session.userId);
+    const success = await disableTwoFactor(user.id);
 
     if (!success) {
       return NextResponse.json({ error: "Failed to disable 2FA" }, { status: 500 });
@@ -22,11 +13,13 @@ export async function POST(req: NextRequest) {
 
     // Log the action
     await logUserAction(
-      result.session.userId,
+      user.id,
       AUDIT_ACTIONS.TWO_FA_DISABLE,
       AUDIT_RESOURCES.TWO_FA,
       undefined,
-      { action: "disabled" }
+      { action: "disabled" },
+      getClientIp(req),
+      getUserAgent(req)
     );
 
     return NextResponse.json({ success: true });
@@ -37,4 +30,4 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

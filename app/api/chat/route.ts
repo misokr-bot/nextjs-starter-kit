@@ -1,7 +1,8 @@
 import { google } from "@ai-sdk/google";
 import { streamText } from "ai";
+import { requireAuth } from "@/lib/middleware/auth";
 
-export async function POST(req: Request) {
+export const POST = requireAuth(async (req, user) => {
   const { messages } = await req.json();
 
   const result = streamText({
@@ -12,4 +13,4 @@ export async function POST(req: Request) {
   });
 
   return result.toDataStreamResponse();
-}
+});

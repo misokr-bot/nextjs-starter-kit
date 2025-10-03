@@ -1,21 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
 import { createOrganization, getUserOrganizations } from "@/lib/organizations";
 import { logUserAction, AUDIT_ACTIONS, AUDIT_RESOURCES } from "@/lib/audit";
+import { requireAuth, getClientIp, getUserAgent } from "@/lib/middleware/auth";
 
-export async function GET(req: NextRequest) {
+export const GET = requireAuth(async (req, user) => {
   try {
-    const result = await auth.api.getSession({
-      headers: await headers(),
-    });
-
-    if (!result?.session?.userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const organizations = await getUserOrganizations(result.session.userId);
-
+    const organizations = await getUserOrganizations(user.id);
     return NextResponse.json({ organizations });
   } catch (error) {
     console.error("Failed to get organizations:", error);
@@ -24,24 +14,16 @@ export async function GET(req: NextRequest) {
       { status: 500 }
     );
   }
-}
+});
 
-export async function POST(req: NextRequest) {
+export const POST = requireAuth(async (req, user) => {
   try {
-    const result = await auth.api.getSession({
-      headers: await headers(),
-    });
-
-    if (!result?.session?.userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     const body = await req.json();
     const { name, slug, description, website } = body;
 
     if (!name || !slug) {
-      return NextResponse.json({ 
-        error: "Name and slug are required" 
+      return NextResponse.json({
+        error: "Name and slug are required"
       }, { status: 400 });
     }
 
@@ -50,16 +32,18 @@ export async function POST(req: NextRequest) {
       slug,
       description,
       website,
-      ownerId: result.session.userId,
+      ownerId: user.id,
     });
 
     // Log the action
     await logUserAction(
-      result.session.userId,
+      user.id,
       AUDIT_ACTIONS.ORGANIZATION_CREATE,
       AUDIT_RESOURCES.ORGANIZATION,
       organization.id,
-      { name: organization.name, slug: organization.slug }
+      { name: organization.name, slug: organization.slug },
+      getClientIp(req),
+      getUserAgent(req)
     );
 
     return NextResponse.json({ organization });
@@ -70,4 +54,4 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
-}
+});
