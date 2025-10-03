@@ -17,6 +17,10 @@ export const user = pgTable("user", {
   image: text("image"),
   role: text("role").notNull().default("user"), // user, admin, super_admin
   isActive: boolean("isActive").notNull().default(true),
+  // Rate limiting and account lockout fields
+  loginAttempts: integer("loginAttempts").notNull().default(0),
+  lastFailedAttempt: timestamp("lastFailedAttempt"),
+  lockedUntil: timestamp("lockedUntil"),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
   updatedAt: timestamp("updatedAt").notNull().defaultNow(),
 });
