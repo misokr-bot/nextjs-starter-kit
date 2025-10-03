@@ -1,20 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
 import { getApiKeysByUser, createApiKey, CreateApiKeyData } from "@/lib/api-keys";
 import { logUserAction, AUDIT_ACTIONS, AUDIT_RESOURCES } from "@/lib/audit";
+import { requirePermission, getClientIp, getUserAgent } from "@/lib/middleware/auth";
 
-export async function GET(req: NextRequest) {
+export const GET = requirePermission("apiKey", "read:own", async (req, user, userContext) => {
   try {
-    const result = await auth.api.getSession({
-      headers: await headers(),
-    });
-
-    if (!result?.session?.userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const apiKeys = await getApiKeysByUser(result.session.userId);
+    const apiKeys = await getApiKeysByUser(user.id);
 
     return NextResponse.json({ apiKeys });
   } catch (error) {
@@ -24,20 +15,12 @@ export async function GET(req: NextRequest) {
       { status: 500 }
     );
   }
-}
+});
 
-export async function POST(req: NextRequest) {
+export const POST = requirePermission("apiKey", "create:own", async (req, user, userContext) => {
   try {
-    const result = await auth.api.getSession({
-      headers: await headers(),
-    });
-
-    if (!result?.session?.userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     const body = await req.json();
-    const { name, permissions, expiresAt } = body;
+    const { name, permissions, expiresAt, organizationId } = body;
 
     if (!name) {
       return NextResponse.json({ error: "Name is required" }, { status: 400 });
@@ -45,7 +28,8 @@ export async function POST(req: NextRequest) {
 
     const createData: CreateApiKeyData = {
       name,
-      userId: result.session.userId,
+      userId: user.id,
+      organizationId: organizationId || userContext.organizationId,
       permissions: permissions || [],
       expiresAt: expiresAt ? new Date(expiresAt) : undefined,
     };
@@ -54,19 +38,26 @@ export async function POST(req: NextRequest) {
 
     // Log the action
     await logUserAction(
-      result.session.userId,
+      user.id,
       AUDIT_ACTIONS.API_KEY_CREATE,
       AUDIT_RESOURCES.API_KEY,
       apiKey.id,
-      { name: apiKey.name, permissions: apiKey.permissions }
+      {
+        name: apiKey.name,
+        permissions: apiKey.permissions,
+        organizationId: apiKey.organizationId,
+      },
+      getClientIp(req),
+      getUserAgent(req)
     );
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       key, // Only return the key once during creation
       apiKey: {
         id: apiKey.id,
         name: apiKey.name,
         permissions: apiKey.permissions,
+        organizationId: apiKey.organizationId,
         lastUsedAt: apiKey.lastUsedAt,
         expiresAt: apiKey.expiresAt,
         isActive: apiKey.isActive,
@@ -81,4 +72,4 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
-}
+});
