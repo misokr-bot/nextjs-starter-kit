@@ -134,7 +134,11 @@ export const AUDIT_ACTIONS = {
   // Security
   TWO_FA_ENABLE: "two_fa_enable",
   TWO_FA_DISABLE: "two_fa_disable",
+  TWO_FA_VERIFY: "two_fa_verify",
+  TWO_FA_SETUP: "two_fa_setup",
   SECURITY_ALERT: "security_alert",
+  ACCOUNT_LOCKED: "account_locked",
+  ACCOUNT_UNLOCKED: "account_unlocked",
   
   // Data Access
   DATA_READ: "data_read",
