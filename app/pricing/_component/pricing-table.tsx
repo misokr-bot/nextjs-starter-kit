@@ -111,10 +111,10 @@ export default function PricingTable({
     <section className="flex flex-col items-center justify-center px-4 mb-24 w-full">
       <div className="text-center mb-12">
         <h1 className="text-4xl font-medium tracking-tight mb-4">
-          Fake Subscription
+          Simple, Transparent Pricing
         </h1>
         <p className="text-xl text-muted-foreground">
-          Test out this starter kit using this fake subscription.
+          Choose the perfect plan for your needs. Cancel anytime.
         </p>
       </div>
 
