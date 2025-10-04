@@ -15,7 +15,8 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { authClient } from "@/lib/auth-client";
-import { ExternalLink, Settings2 } from "lucide-react";
+import { ExternalLink, Settings2, Key, Users, Shield, ChevronRight } from "lucide-react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -76,7 +77,7 @@ function SettingsContent() {
   // Handle URL tab parameter
   useEffect(() => {
     const tab = searchParams.get("tab");
-    if (tab && ["profile", "organization", "billing"].includes(tab)) {
+    if (tab && ["profile", "billing"].includes(tab)) {
       setCurrentTab(tab);
     }
   }, [searchParams]);
@@ -548,6 +549,57 @@ function SettingsContent() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Additional Settings */}
+      <div className="w-full max-w-4xl mt-8">
+        <h2 className="text-xl font-semibold mb-4">Additional Settings</h2>
+        <div className="grid gap-4 md:grid-cols-3">
+          <Link href="/dashboard/settings/api-keys">
+            <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <Key className="h-5 w-5 text-primary" />
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <CardTitle className="text-base">API Keys</CardTitle>
+                <CardDescription className="text-sm">
+                  Manage your API keys and access tokens
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          </Link>
+
+          <Link href="/dashboard/settings/organization">
+            <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <Users className="h-5 w-5 text-primary" />
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <CardTitle className="text-base">Organizations</CardTitle>
+                <CardDescription className="text-sm">
+                  Manage teams, members, and permissions
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          </Link>
+
+          <Link href="/dashboard/settings/security">
+            <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <Shield className="h-5 w-5 text-primary" />
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <CardTitle className="text-base">Security</CardTitle>
+                <CardDescription className="text-sm">
+                  Two-factor authentication and password settings
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          </Link>
+        </div>
+      </div>
     </div>
   );
 }
