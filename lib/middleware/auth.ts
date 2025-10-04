@@ -46,21 +46,13 @@ export async function getAuthenticatedUser() {
  * Get user context with organization information
  */
 export async function getUserContext(
-  userId: string,
+  user: NonNullable<Awaited<ReturnType<typeof getAuthenticatedUser>>>,
   organizationId?: string
 ): Promise<UserContext | null> {
   try {
-    const result = await auth.api.getSession({
-      headers: await headers(),
-    });
-
-    if (!result?.user) {
-      return null;
-    }
-
     const userContext: UserContext = {
-      userId: result.user.id,
-      role: (result.user.role as "user" | "admin" | "super_admin") || "user",
+      userId: user.id,
+      role: (user.role as "user" | "admin" | "super_admin") || "user",
     };
 
     // If organizationId is provided, get user's role in that organization
@@ -70,7 +62,7 @@ export async function getUserContext(
           role: organizationMember.role,
         })
         .from(organizationMember)
-        .where(eq(organizationMember.userId, userId))
+        .where(eq(organizationMember.userId, user.id))
         .limit(1);
 
       if (membership.length > 0) {
@@ -188,7 +180,7 @@ export async function requirePermission(
     const url = new URL(req.url);
     const organizationId = url.searchParams.get("organizationId") || undefined;
 
-    const userContext = await getUserContext(user.id, organizationId);
+    const userContext = await getUserContext(user, organizationId);
 
     if (!userContext) {
       return NextResponse.json(
