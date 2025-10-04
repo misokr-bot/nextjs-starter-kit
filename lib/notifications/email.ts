@@ -1,6 +1,8 @@
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const resend = process.env.RESEND_API_KEY
+  ? new Resend(process.env.RESEND_API_KEY)
+  : null;
 
 export interface EmailTemplate {
   to: string;
@@ -39,6 +41,11 @@ export interface SecurityAlertEmailData {
 }
 
 export async function sendEmail(template: EmailTemplate) {
+  if (!resend) {
+    console.warn("Resend API key not configured. Email not sent:", template.subject);
+    return { id: "mock-email-id", message: "Email sending disabled (no API key)" };
+  }
+
   try {
     const { data, error } = await resend.emails.send({
       from: process.env.RESEND_FROM_EMAIL || "noreply@yourdomain.com",
