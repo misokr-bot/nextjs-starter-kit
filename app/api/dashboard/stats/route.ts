@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db/drizzle";
 import { user, organization, apiKey, twoFactorAuth } from "@/db/schema";
 import { count, gte, sql, and, eq } from "drizzle-orm";
-import { requireAuth } from "@/lib/api-auth";
+import { requireAuth } from "@/lib/middleware/auth";
 
 export const GET = requireAuth(async (req: NextRequest, authenticatedUser) => {
   try {
