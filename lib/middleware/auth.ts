@@ -84,7 +84,7 @@ export async function getUserContext(
 /**
  * Middleware to require authentication
  */
-export async function requireAuth(
+export function requireAuth(
   handler: (
     req: NextRequest,
     user: NonNullable<Awaited<ReturnType<typeof getAuthenticatedUser>>>
@@ -107,7 +107,7 @@ export async function requireAuth(
 /**
  * Middleware to require specific role
  */
-export async function requireRole(
+export function requireRole(
   role: "user" | "admin" | "super_admin",
   handler: (
     req: NextRequest,
@@ -157,7 +157,7 @@ export async function requireRole(
 /**
  * Middleware to require specific permission
  */
-export async function requirePermission(
+export function requirePermission(
   resource: string,
   action: string,
   handler: (
@@ -209,7 +209,7 @@ export async function requirePermission(
 /**
  * Middleware to require organization membership
  */
-export async function requireOrganization(
+export function requireOrganization(
   handler: (
     req: NextRequest,
     user: NonNullable<Awaited<ReturnType<typeof getAuthenticatedUser>>>,
